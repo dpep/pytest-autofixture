@@ -30,12 +30,15 @@ Because fixtures resolve their dependencies from where the test is, an inner cla
 def role():
     return "member"
 
+
 @pytest.fixture
 def user():
     return User(role=role)
 
+
 def test_member():
     assert not user.can_delete()
+
 
 class TestAdmin:
     @pytest.fixture
