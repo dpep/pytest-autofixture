@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytest-autofixture"
-version = "0.2.1"
+dynamic = ["version"]
 authors = [{name = "Daniel Pepper"}]
 description = "simplify pytest fixtures"
 readme = "README.md"
@@ -29,6 +29,9 @@ dev = ["ruff"]
 
 [tool.setuptools]
 packages = ["pytest_autofixture"]
+
+[tool.setuptools.dynamic]
+version = {attr = "pytest_autofixture.__version__"}
 
 [tool.ruff]
 line-length = 100
