@@ -30,7 +30,8 @@ def test_unknown_name_is_still_a_name_error():
         no_such_thing
 
 
-def run(pytester, **files):
+@pytest.fixture
+def run(pytester):
     pytester.makeconftest("""
         import itertools
         import pytest
@@ -46,12 +47,16 @@ def run(pytester, **files):
         def name():
             return "conftest"
     """)
-    pytester.makepyfile(**files)
-    return pytester.runpytest()
+
+    def run(source):
+        pytester.makepyfile(source)
+        return pytester.runpytest()
+
+    return run
 
 
-def test_fresh_value_per_test(pytester):
-    result = run(pytester, test_it="""
+def test_fresh_value_per_test(run):
+    result = run("""
         def test_1():
             assert counter == 1
 
@@ -67,8 +72,8 @@ def test_fresh_value_per_test(pytester):
     result.assert_outcomes(passed=4)
 
 
-def test_closest_override_wins(pytester):
-    result = run(pytester, test_it="""
+def test_closest_override_wins(run):
+    result = run("""
         import pytest
 
         @pytest.fixture
@@ -89,8 +94,8 @@ def test_closest_override_wins(pytester):
     result.assert_outcomes(passed=2)
 
 
-def test_lazy_setup_and_teardown(pytester):
-    result = run(pytester, test_it="""
+def test_lazy_setup_and_teardown(run):
+    result = run("""
         import pytest
         from conftest import LOG
 
@@ -114,8 +119,8 @@ def test_lazy_setup_and_teardown(pytester):
     result.assert_outcomes(passed=3)
 
 
-def test_respects_scope(pytester):
-    result = run(pytester, test_it="""
+def test_respects_scope(run):
+    result = run("""
         import itertools
         import pytest
 
@@ -134,8 +139,8 @@ def test_respects_scope(pytester):
     result.assert_outcomes(passed=2)
 
 
-def test_edge_cases(pytester):
-    result = run(pytester, test_it="""
+def test_edge_cases(run):
+    result = run("""
         import types
         import pytest
 
@@ -168,8 +173,8 @@ def test_edge_cases(pytester):
     result.assert_outcomes(passed=5)
 
 
-def test_missing_dependency_reports_the_dependency(pytester):
-    result = run(pytester, test_it="""
+def test_missing_dependency_reports_the_dependency(run):
+    result = run("""
         import pytest
 
         @pytest.fixture
