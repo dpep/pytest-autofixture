@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fixture bodies can reference other fixtures by bare name too.
 - Fixtures now resolve lazily through pytest, so scope, overrides, teardown and caching behave like declared fixtures. This fixes stale values between tests and the wrong override winning.
 - Requires pytest >= 8.4 and Python >= 3.11.
 

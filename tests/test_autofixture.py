@@ -32,6 +32,10 @@ def test_unknown_name_is_still_a_name_error():
 
 @pytest.fixture
 def run(pytester):
+    pytester.makeini("""
+        [pytest]
+        asyncio_default_fixture_loop_scope = function
+    """)
     pytester.makeconftest("""
         import itertools
         import pytest
@@ -186,3 +190,83 @@ def test_missing_dependency_reports_the_dependency(run):
     """)
     result.assert_outcomes(errors=0, failed=1)
     result.stdout.fnmatch_lines(["*fixture 'not_a_fixture' not found*"])
+
+
+def test_fixture_bodies_resolve_bare_names(run):
+    result = run("""
+        import pytest
+        from conftest import LOG
+
+        @pytest.fixture
+        def role():
+            return "member"
+
+        @pytest.fixture
+        def user():
+            return f"{name}:{role}"
+
+        @pytest.fixture
+        def resource():
+            yield user
+            LOG.append(f"teardown {role}")
+
+        def test_default():
+            assert user == "conftest:member"
+
+        def test_yield_fixture():
+            assert resource == "conftest:member"
+
+        def test_torn_down():
+            assert LOG == ["teardown member"]
+
+        class TestAdmin:
+            @pytest.fixture
+            def role(self):
+                return "admin"
+
+            @pytest.fixture
+            def badge(self):
+                return f"{self.__class__.__name__}:{user}"
+
+            def test_inner_override_reaches_outer_fixture(self):
+                assert user == "conftest:admin"
+
+            def test_method_fixture(self):
+                assert badge == "TestAdmin:conftest:admin"
+    """)
+    result.assert_outcomes(passed=5)
+
+
+def test_fixture_bodies_respect_scope(run):
+    result = run("""
+        import pytest
+
+        @pytest.fixture(scope="session")
+        def wide():
+            return counter
+
+        def test_scope_mismatch():
+            wide
+    """)
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*ScopeMismatch*"])
+
+
+def test_async_fixture_bodies(run):
+    pytest.importorskip("pytest_asyncio")
+    result = run("""
+        import pytest
+        import pytest_asyncio
+
+        @pytest_asyncio.fixture
+        async def agen():
+            yield f"async:{name}"
+
+        def test_sync():
+            assert agen == "async:conftest"
+
+        @pytest.mark.asyncio
+        async def test_async(agen):
+            assert agen == "async:conftest"
+    """)
+    result.assert_outcomes(passed=2)
