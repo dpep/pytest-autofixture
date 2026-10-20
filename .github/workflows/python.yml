@@ -14,8 +14,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: 3.x
     - run: pip install --upgrade pip && pip install --group dev
@@ -28,14 +28,14 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ "3.11", "3.12", "3.13", "3.14" ]
-        pytest-version: [ "8.4.*", "*" ]
+        pytest: [ "pytest==8.4.*", "pytest" ]
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
         cache: pip
-    - run: pip install -e . "pytest==${{ matrix.pytest-version }}"
+    - run: pip install -e . "${{ matrix.pytest }}"
     - run: pytest
 
   publish:
@@ -48,8 +48,8 @@ jobs:
     permissions:
       id-token: write
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: 3.x
     - run: pip install build && python -m build
