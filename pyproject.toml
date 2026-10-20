@@ -1,18 +1,18 @@
 [build-system]
-requires = ["setuptools >= 61"]
+requires = ["setuptools >= 77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytest-autofixture"
-authors = [{name = "Daniel Pepper"}]
 dynamic = ["version"]
+authors = [{name = "Daniel Pepper"}]
 description = "simplify pytest fixtures"
 readme = "README.md"
-license = {file = "LICENSE.txt"}
+license = "MIT"
+license-files = ["LICENSE.txt"]
 classifiers = [
-  # https://pypi.python.org/pypi?%3Aaction=list_classifiers
+  # https://pypi.org/classifiers/
   "Framework :: Pytest",
-  "License :: OSI Approved :: MIT License",
   "Topic :: Software Development :: Testing"
 ]
 requires-python = ">= 3.11"
@@ -21,17 +21,24 @@ dependencies = ["pytest >= 8.4"]
 [project.entry-points.pytest11]
 autofixture = "pytest_autofixture"
 
-[project.optional-dependencies]
-test = [
-  "isort >= 5.13",
-  "setuptools >= 61",
-]
-
 [project.urls]
 Homepage = "https://github.com/dpep/pytest-autofixture"
+
+[dependency-groups]
+dev = ["ruff"]
 
 [tool.setuptools]
 packages = ["pytest_autofixture"]
 
 [tool.setuptools.dynamic]
 version = {attr = "pytest_autofixture.__version__"}
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# bare fixture names are the point
+"tests/**" = ["B018", "F821"]

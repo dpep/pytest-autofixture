@@ -7,35 +7,50 @@ on:
   pull_request:
     types: [ opened, synchronize ]
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
 
+jobs:
+  lint:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Python setup
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: 3.x
+    - run: pip install --upgrade pip && pip install --group dev
+    - run: ruff check .
+    - run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.11", "3.12", "3.13", "3.14" ]
+        pytest: [ "pytest==8.4.*", "pytest" ]
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
         cache: pip
-    - name: install dependencies
-      run: pip install -e .[test]
+    - run: pip install -e . "${{ matrix.pytest }}"
     - run: pytest
 
-
-    # build and publish
-    - name: build package
-      if: startsWith(github.ref, 'refs/tags/')  # tags pushed
-      run: |
-        pip install build
-        python -m build  # build wheel and source tarball
-    - name: publish
-      if: startsWith(github.ref, 'refs/tags/')  # tags pushed
-      uses: pypa/gh-action-pypi-publish@release/v1
-      env:
-        url: https://pypi.org/p/pytest-autofixture
-
-
-permissions:
-  id-token: write
-  contents: read
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [ lint, test ]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pytest-autofixture
+    permissions:
+      id-token: write
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: 3.x
+    - run: pip install build && python -m build
+    - uses: pypa/gh-action-pypi-publish@release/v1

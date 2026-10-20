@@ -5,8 +5,7 @@ fixture, lazily, via `request.getfixturevalue`. pytest owns setup, caching,
 scope, overrides and teardown; nothing is written to the test's module.
 """
 
-__author__ = 'dpepper'
-__version__ = '0.2.1'
+__version__ = "0.2.1"
 
 import builtins
 import types
