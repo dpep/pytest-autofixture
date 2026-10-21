@@ -39,3 +39,27 @@ class TestLet:
 
     def test_override_reaches_outer_let(self):
         assert shout == "HI LET"
+
+
+def helper():
+    return answer
+
+
+def test_helpers_do_not_see_lets():
+    assert answer
+    with pytest.raises(NameError):
+        helper()
+
+
+def test_let_mutable_constant():
+    with pytest.raises(TypeError, match=r"lambda: \[\]"):
+
+        class _:
+            let.items = []
+
+
+def test_let_builtin_name():
+    with pytest.raises(TypeError, match="builtin"):
+
+        class _:
+            let.id = 5

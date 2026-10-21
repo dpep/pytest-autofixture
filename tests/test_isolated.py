@@ -304,3 +304,17 @@ def test_module_globals_stay_live(run):
             assert name == "conftest"
     """)
     result.assert_outcomes(passed=6)
+
+
+def test_let_forgotten_lambda_fails_at_import(run):
+    result = run("""
+        from pytest_autofixture import let
+
+        let.role = "member"
+        let.label = f"role={role}"
+
+        def test_it():
+            pass
+    """)
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(["*NameError: name 'role' is not defined*"])
