@@ -49,6 +49,13 @@ class TestAdmin:
         assert user.can_delete()
 ```
 
+`parametrize` works the same way, without declaring the name:
+```python
+@pytest.mark.parametrize("role", ["admin", "owner"])
+def test_can_delete():
+    assert user.can_delete()
+```
+
 
 ### `let`
 For one-liners, `let` defines a fixture right where it's written, at module level or in a test class, like RSpec's `let(:role) { "member" }`:
