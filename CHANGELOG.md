@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Decorated tests (`@mock.patch`, `@given`) that use bare fixture names now fail with an error saying to declare them as parameters, instead of silently getting the fixture object.
 - `let.name = value` defines a one-line fixture, at module level or in a test class. A `lambda` value is called lazily, once per test.
 - Fixture bodies can reference other fixtures by bare name too.
 - Fixtures now resolve lazily through pytest, so scope, overrides, teardown and caching behave like declared fixtures. This fixes stale values between tests and the wrong override winning.

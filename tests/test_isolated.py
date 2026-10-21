@@ -182,3 +182,51 @@ def test_fixture_bodies_under_other_wrappers(run):
         """,
     )
     result.assert_outcomes(passed=1)
+
+
+def test_decorated_tests(run):
+    result = run("""
+        import types
+        from unittest import mock
+
+        import pytest
+
+        @pytest.fixture
+        def local():
+            return 1
+
+        @mock.patch("os.getcwd")
+        def test_local_fixture(getcwd):
+            assert local == 1
+
+        @mock.patch("os.getcwd")
+        def test_conftest_fixture(getcwd):
+            assert name == "conftest"
+
+        def given(test):
+            # mimics hypothesis, which exposes the original but sets no __wrapped__
+            def wrapper():
+                return test()
+
+            wrapper.hypothesis = types.SimpleNamespace(inner_test=test)
+            return wrapper
+
+        @given
+        def test_hypothesis_style():
+            assert local == 1
+
+        @mock.patch("os.getcwd")
+        def test_explicit_params(getcwd, local):
+            obj = types.SimpleNamespace(name="attr")
+            assert local == 1
+            assert obj.name == "attr"
+    """)
+    result.assert_outcomes(passed=1, failed=3)
+    result.stdout.fnmatch_lines(
+        [
+            "*test_local_fixture is wrapped by a decorator*declare 'local' as a parameter*",
+            "*NameError*",
+            "*test_conftest_fixture is wrapped by a decorator*",
+            "*test_hypothesis_style is wrapped by a decorator*declare 'local' as a parameter*",
+        ]
+    )
