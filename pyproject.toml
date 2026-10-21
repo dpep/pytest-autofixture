@@ -25,7 +25,7 @@ autofixture = "pytest_autofixture"
 Homepage = "https://github.com/dpep/pytest-autofixture"
 
 [dependency-groups]
-dev = ["pytest-asyncio", "ruff"]
+dev = ["ruff"]
 
 [tool.setuptools]
 packages = ["pytest_autofixture"]

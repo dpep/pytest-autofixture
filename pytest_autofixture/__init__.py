@@ -74,7 +74,7 @@ def pytest_runtest_call(item):
 
 # the request here is the fixture's own SubRequest, so lookups get pytest's
 # scope checks and resolve overrides from the requesting test's position.
-# tryfirst: wrap the user's function before pytest-asyncio wraps it.
+# tryfirst: rebind the user's function before plugins like pytest-asyncio wrap it.
 @pytest.hookimpl(wrapper=True, tryfirst=True)
 def pytest_fixture_setup(fixturedef, request):
     return (yield from _swap(fixturedef, "func", request))

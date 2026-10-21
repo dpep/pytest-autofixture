@@ -30,13 +30,7 @@ def test_unknown_name_is_still_a_name_error():
         no_such_thing
 
 
-@pytest.fixture
-def run(pytester):
-    pytester.makeini("""
-        [pytest]
-        asyncio_default_fixture_loop_scope = function
-    """)
-    pytester.makeconftest("""
+CONFTEST = """
         import itertools
         import pytest
 
@@ -50,9 +44,13 @@ def run(pytester):
         @pytest.fixture
         def name():
             return "conftest"
-    """)
+"""
 
-    def run(source):
+
+@pytest.fixture
+def run(pytester):
+    def run(source, conftest=""):
+        pytester.makeconftest(CONFTEST + conftest)
         pytester.makepyfile(source)
         return pytester.runpytest()
 
@@ -252,21 +250,28 @@ def test_fixture_bodies_respect_scope(run):
     result.stdout.fnmatch_lines(["*ScopeMismatch*"])
 
 
-def test_async_fixture_bodies(run):
-    pytest.importorskip("pytest_asyncio")
-    result = run("""
+def test_fixture_bodies_under_other_wrappers(run):
+    # mirrors pytest-asyncio, which wraps fixturedef.func and loads after us
+    result = run(
+        """
         import pytest
-        import pytest_asyncio
 
-        @pytest_asyncio.fixture
-        async def agen():
-            yield f"async:{name}"
+        @pytest.fixture
+        def greeting():
+            return f"hi {name}"
 
-        def test_sync():
-            assert agen == "async:conftest"
-
-        @pytest.mark.asyncio
-        async def test_async(agen):
-            assert agen == "async:conftest"
-    """)
-    result.assert_outcomes(passed=2)
+        def test_it():
+            assert greeting == "hi conftest"
+        """,
+        conftest="""
+        @pytest.hookimpl(wrapper=True)
+        def pytest_fixture_setup(fixturedef, request):
+            inner = fixturedef.func
+            fixturedef.func = lambda *args, **kwargs: inner(*args, **kwargs)
+            try:
+                return (yield)
+            finally:
+                fixturedef.func = inner
+        """,
+    )
+    result.assert_outcomes(passed=1)
