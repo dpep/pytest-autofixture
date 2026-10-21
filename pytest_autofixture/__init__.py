@@ -43,14 +43,30 @@ class _Let:
 let = _Let()
 
 
+def _module_value(module, name):
+    """A module global, unless it's a fixture object, whose value should win."""
+    value = module[name]
+    if isinstance(value, FixtureFunctionDefinition):
+        raise KeyError(name)
+    return value
+
+
 class _FixtureBuiltins(dict):
     """Builtins for one test call: real builtins first, then fixtures."""
 
-    def __init__(self, request):
+    def __init__(self, request, module):
         super().__init__(vars(builtins))
         self._request = request
+        self._module = module
 
     def __missing__(self, name):
+        # LOAD_NAME (class bodies, exec) reads globals without __getitem__, so
+        # module globals can land here; read them live, without caching
+        try:
+            return _module_value(self._module, name)
+        except KeyError:
+            pass
+
         try:
             value = self._request.getfixturevalue(name)
         except pytest.FixtureLookupError as e:
@@ -63,40 +79,74 @@ class _FixtureBuiltins(dict):
         return value
 
 
-def _rebind(func, request):
-    # a fixture defined in the test's own module would shadow its value
-    namespace = {
-        k: v for k, v in func.__globals__.items() if not isinstance(v, FixtureFunctionDefinition)
-    }
-    # functions take builtins from their globals when created (3.10+), so
-    # lambdas, nested defs and genexprs inside the test inherit the fallback
-    namespace["__builtins__"] = _FixtureBuiltins(request)
-    rebound = types.FunctionType(
-        func.__code__, namespace, func.__name__, func.__defaults__, func.__closure__
-    )
-    rebound.__kwdefaults__ = func.__kwdefaults__
-    rebound.__dict__.update(func.__dict__)
-    return rebound
+_MODULE_DUNDERS = (
+    "__name__",
+    "__qualname__",
+    "__doc__",
+    "__package__",
+    "__loader__",
+    "__spec__",
+    "__file__",
+    "__cached__",
+    "__path__",
+)
+
+
+class _LiveGlobals(dict):
+    """A function's module globals, read live, with fixture objects hidden.
+
+    Reads go through __getitem__ (globals that aren't an exact dict take the slow
+    path), so rebinds by helpers or monkeypatch are seen. Hiding a fixture object
+    raises KeyError, which falls through to builtins and then to the fixture.
+    STORE_GLOBAL bypasses __setitem__, so `global` writes land here until
+    write_back copies them to the module.
+    """
+
+    def __init__(self, module, request):
+        # C code reads these directly, without __getitem__ (e.g. __name__ for
+        # the __module__ of functions and classes made in the test)
+        super().__init__({k: module[k] for k in _MODULE_DUNDERS if k in module})
+        # functions take builtins from their globals when created (3.10+), so
+        # lambdas, nested defs and genexprs inside the test inherit the fallback
+        self["__builtins__"] = _FixtureBuiltins(request, module)
+        self._module = module
+
+    def __getitem__(self, name):
+        try:
+            return super().__getitem__(name)
+        except KeyError:
+            return _module_value(self._module, name)
+
+    def write_back(self):
+        for name, value in self.items():
+            if not name.startswith("__"):
+                self._module[name] = value
 
 
 def _swap(obj, attr, request):
     """Temporarily replace obj.<attr> with a rebound copy, if it's a function."""
     original = getattr(obj, attr, None)
-    if isinstance(original, types.MethodType):
-        rebound = types.MethodType(_rebind(original.__func__, request), original.__self__)
-    elif isinstance(original, staticmethod):
-        # a module-level let; a plain function is never bound to a test instance
-        rebound = _rebind(original.__func__, request)
-    elif isinstance(original, types.FunctionType):
-        rebound = _rebind(original, request)
-    else:
+    # staticmethod is a module-level let: unwrapped, a plain function is never
+    # bound to a test instance
+    func = getattr(original, "__func__", original)
+    if not isinstance(func, types.FunctionType):
         return (yield)
+
+    namespace = _LiveGlobals(func.__globals__, request)
+    rebound = types.FunctionType(
+        func.__code__, namespace, func.__name__, func.__defaults__, func.__closure__
+    )
+    rebound.__kwdefaults__ = func.__kwdefaults__
+    rebound.__dict__.update(func.__dict__)
+    if isinstance(original, types.MethodType):
+        rebound = types.MethodType(rebound, original.__self__)
 
     setattr(obj, attr, rebound)
     try:
         return (yield)
     finally:
         setattr(obj, attr, original)
+        namespace.write_back()
 
 
 def _loaded_globals(code):

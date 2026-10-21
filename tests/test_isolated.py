@@ -254,3 +254,53 @@ def test_non_function_items(run, pytester):
         """,
     )
     result.assert_outcomes(passed=2)
+
+
+def test_module_globals_stay_live(run):
+    result = run("""
+        import sys
+
+        import pytest
+
+        COUNT = 0
+        TIMEOUT = 30
+        _state = None
+        _conn = None
+
+        def set_state():
+            global _state
+            _state = 1
+
+        @pytest.fixture
+        def conn():
+            global _conn
+            _conn = "open"
+            return _conn
+
+        def test_global_write():
+            global COUNT
+            COUNT += 1
+
+        def test_global_write_persists():
+            assert COUNT == 1
+
+        def test_helper_rebinds_a_global():
+            set_state()
+            assert _state == 1
+
+        def test_fixture_rebinds_a_global(conn):
+            assert _conn == "open"
+
+        def test_class_body_in_a_test():
+            class Config:
+                timeout = TIMEOUT
+                who = name
+
+            assert (Config.timeout, Config.who) == (30, "conftest")
+
+        def test_monkeypatch_own_module(monkeypatch):
+            monkeypatch.setattr(sys.modules[__name__], "TIMEOUT", 0)
+            assert TIMEOUT == 0
+            assert name == "conftest"
+    """)
+    result.assert_outcomes(passed=6)
