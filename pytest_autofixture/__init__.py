@@ -20,7 +20,8 @@ from _pytest.fixtures import FixtureFunctionDefinition
 class _Let:
     """`let.role = "member"` defines a fixture named `role` where it's written.
 
-    A lambda is called lazily, once per test; any other value is used as is.
+    A lambda is called on first use, at most once per test; any other value is
+    shared by every test, so mutable containers must be wrapped in a lambda.
     """
 
     def __setattr__(self, name, value):
@@ -28,16 +29,27 @@ class _Let:
         # a function's locals are gone once it returns, and pytest never sees them
         if frame.f_code.co_flags & inspect.CO_OPTIMIZED:
             raise TypeError(f"let.{name} must be set at module or class level")
+        # builtins resolve before fixtures, so the let would never be seen
+        if hasattr(builtins, name):
+            raise TypeError(f"let.{name} would be hidden by the builtin {name!r}")
 
         if isinstance(value, types.LambdaType) and value.__name__ == "<lambda>":
             if inspect.signature(value).parameters:
                 raise TypeError(f"let.{name} lambda takes no arguments; use bare names instead")
             factory = value
+        elif isinstance(value, (list, dict, set, bytearray)):
+            raise TypeError(
+                f"let.{name} = {value!r} would be shared by every test; "
+                f"use let.{name} = lambda: {value!r}"
+            )
         else:
             factory = lambda: value  # noqa: E731
 
-        # staticmethod so a let in a test class isn't bound to the instance
-        frame.f_locals[name] = pytest.fixture(staticmethod(factory), name=name)
+        # stored under another name so `role` stays undefined at import: a
+        # forgotten lambda or a helper reading it raises NameError instead of
+        # getting the fixture object. staticmethod so a let in a test class
+        # isn't bound to the instance.
+        frame.f_locals[f"_let_{name}"] = pytest.fixture(staticmethod(factory), name=name)
 
 
 let = _Let()
