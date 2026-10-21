@@ -2,6 +2,8 @@ import pytest
 
 from pytest_autofixture import let
 
+# `name` comes from tests/conftest.py
+
 let.greeting = lambda: f"hi {name}"
 let.shout = lambda: greeting.upper()
 let.answer = 42
@@ -46,7 +48,7 @@ def helper():
 
 
 def test_helpers_do_not_see_lets():
-    assert answer
+    assert answer  # resolved for the test itself
     with pytest.raises(NameError):
         helper()
 
