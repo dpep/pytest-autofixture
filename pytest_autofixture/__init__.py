@@ -222,3 +222,16 @@ def pytest_runtest_call(item):
 @pytest.hookimpl(wrapper=True, tryfirst=True)
 def pytest_fixture_setup(fixturedef, request):
     return (yield from _swap(fixturedef, "func", request))
+
+
+# pytest rejects parametrizing a name the test doesn't declare, so add the
+# parametrized names to the fixtures it requests before pytest's own hook runs
+@pytest.hookimpl(tryfirst=True)
+def pytest_generate_tests(metafunc):
+    for marker in metafunc.definition.iter_markers("parametrize"):
+        argnames = marker.args[0] if marker.args else marker.kwargs.get("argnames", ())
+        if isinstance(argnames, str):
+            argnames = [name.strip() for name in argnames.split(",") if name.strip()]
+        for name in argnames:
+            if name not in metafunc.fixturenames:
+                metafunc.fixturenames.append(name)

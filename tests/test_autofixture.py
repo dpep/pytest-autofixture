@@ -114,3 +114,13 @@ class TestOverride:
 
     def test_method_fixture(self):
         assert badge == "TestOverride:class:admin"
+
+
+@pytest.mark.parametrize("role", ["admin", "owner"])
+def test_parametrize_a_bare_name():
+    assert user == f"conftest:{role}"
+
+
+@pytest.mark.parametrize("x, y", [(1, 2)])
+def test_parametrize_several_bare_names():
+    assert (x, y) == (1, 2)
