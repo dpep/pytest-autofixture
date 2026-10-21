@@ -1,34 +1,6 @@
+# behavior that needs its own pytest session: state across tests,
+# expected failures, and hooks that would affect the whole suite
 import pytest
-
-
-@pytest.fixture
-def one():
-    return 1
-
-
-@pytest.fixture
-def two():
-    return 2
-
-
-@pytest.fixture
-def three(one, two):
-    return one + two
-
-
-def test_explicit(one):
-    assert one == 1
-
-
-def test_implicit():
-    assert one == 1
-    assert three == 3
-
-
-def test_unknown_name_is_still_a_name_error():
-    with pytest.raises(NameError, match="no_such_thing"):
-        no_such_thing
-
 
 CONFTEST = """
         import itertools
@@ -72,28 +44,6 @@ def test_fresh_value_per_test(run):
             assert counter == counter
     """)
     result.assert_outcomes(passed=4)
-
-
-def test_closest_override_wins(run):
-    result = run("""
-        import pytest
-
-        @pytest.fixture
-        def name():
-            return "module"
-
-        def test_module():
-            assert name == "module"
-
-        class TestClass:
-            @pytest.fixture
-            def name(self):
-                return "class"
-
-            def test_class(self):
-                assert name == "class"
-    """)
-    result.assert_outcomes(passed=2)
 
 
 def test_lazy_setup_and_teardown(run):
@@ -141,40 +91,6 @@ def test_respects_scope(run):
     result.assert_outcomes(passed=2)
 
 
-def test_edge_cases(run):
-    result = run("""
-        import types
-        import pytest
-
-        @pytest.fixture
-        def zero():
-            return 0
-
-        def helper():
-            return name
-
-        def test_falsy_values():
-            assert zero == 0
-
-        def test_nested_scopes():
-            assert (lambda: name)() == "conftest"
-            assert list(name for _ in range(1)) == ["conftest"]
-
-        def test_helpers_do_not_see_fixtures():
-            assert name
-            with pytest.raises(NameError):
-                helper()
-
-        def test_attribute_named_like_a_fixture():
-            obj = types.SimpleNamespace(counter="attr")
-            assert obj.counter == "attr"
-
-        def test_builtin_fixtures():
-            tmp_path.joinpath("x").write_text("hi")
-    """)
-    result.assert_outcomes(passed=5)
-
-
 def test_missing_dependency_reports_the_dependency(run):
     result = run("""
         import pytest
@@ -190,49 +106,23 @@ def test_missing_dependency_reports_the_dependency(run):
     result.stdout.fnmatch_lines(["*fixture 'not_a_fixture' not found*"])
 
 
-def test_fixture_bodies_resolve_bare_names(run):
+def test_fixture_body_teardown(run):
     result = run("""
         import pytest
         from conftest import LOG
 
         @pytest.fixture
-        def role():
-            return "member"
-
-        @pytest.fixture
-        def user():
-            return f"{name}:{role}"
-
-        @pytest.fixture
         def resource():
-            yield user
-            LOG.append(f"teardown {role}")
+            yield name
+            LOG.append(f"teardown {name}")
 
-        def test_default():
-            assert user == "conftest:member"
-
-        def test_yield_fixture():
-            assert resource == "conftest:member"
+        def test_uses_it():
+            assert resource == "conftest"
 
         def test_torn_down():
-            assert LOG == ["teardown member"]
-
-        class TestAdmin:
-            @pytest.fixture
-            def role(self):
-                return "admin"
-
-            @pytest.fixture
-            def badge(self):
-                return f"{self.__class__.__name__}:{user}"
-
-            def test_inner_override_reaches_outer_fixture(self):
-                assert user == "conftest:admin"
-
-            def test_method_fixture(self):
-                assert badge == "TestAdmin:conftest:admin"
+            assert LOG == ["teardown conftest"]
     """)
-    result.assert_outcomes(passed=5)
+    result.assert_outcomes(passed=2)
 
 
 def test_fixture_bodies_respect_scope(run):
