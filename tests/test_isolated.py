@@ -230,3 +230,27 @@ def test_decorated_tests(run):
             "*test_hypothesis_style is wrapped by a decorator*declare 'local' as a parameter*",
         ]
     )
+
+
+def test_non_function_items(run, pytester):
+    pytester.makefile(".yaml", spec="")
+    result = run(
+        """
+        def test_it():
+            assert name == "conftest"
+        """,
+        conftest="""
+        class YamlItem(pytest.Item):
+            def runtest(self):
+                pass
+
+        class YamlFile(pytest.File):
+            def collect(self):
+                yield YamlItem.from_parent(self, name="yaml_item")
+
+        def pytest_collect_file(parent, file_path):
+            if file_path.suffix == ".yaml":
+                return YamlFile.from_parent(parent, path=file_path)
+        """,
+    )
+    result.assert_outcomes(passed=2)
