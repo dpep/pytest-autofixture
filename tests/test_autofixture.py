@@ -2,6 +2,8 @@ import types
 
 import pytest
 
+from pytest_autofixture import let
+
 
 @pytest.fixture
 def one():
@@ -114,3 +116,30 @@ class TestOverride:
 
     def test_method_fixture(self):
         assert badge == "TestOverride:class:admin"
+
+
+greeting = let(lambda: f"hi {name}")
+shout = let(lambda: greeting.upper())
+
+
+def test_let():
+    assert greeting == "hi conftest"
+    assert shout == "HI CONFTEST"
+
+
+def test_let_as_parameter(greeting):
+    assert greeting == "hi conftest"
+
+
+def test_let_takes_a_zero_arg_callable():
+    with pytest.raises(TypeError, match="lambda"):
+        let("hi")
+    with pytest.raises(TypeError, match="lambda"):
+        let(lambda name: name)
+
+
+class TestLet:
+    name = let(lambda: "let")
+
+    def test_override_reaches_outer_let(self):
+        assert shout == "HI LET"

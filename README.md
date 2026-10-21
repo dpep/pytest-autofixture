@@ -50,6 +50,24 @@ class TestAdmin:
 ```
 
 
+### `let`
+For one-liners, `let` defines a fixture from a zero-argument lambda, named after the attribute it's assigned to. It works at module level and in test classes:
+```python
+from pytest_autofixture import let
+
+role = let(lambda: "member")
+user = let(lambda: User(role=role))
+
+
+class TestAdmin:
+    role = let(lambda: "admin")
+
+    def test_admin(self):
+        assert user.can_delete()
+```
+
+Like RSpec's `let`, it's lazy and memoized per test. Use a regular fixture when you need a scope, params, or teardown. There's no special `subject`: `subject = let(lambda: Order(items=items))` is just a fixture named `subject`.
+
 ### Limitations
 Declare the fixture as a parameter instead when:
 - the test is wrapped by a decorator such as `@mock.patch` or hypothesis's `@given`

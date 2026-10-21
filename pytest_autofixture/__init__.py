@@ -8,10 +8,22 @@ scope, overrides and teardown; nothing is written to the test's module.
 __version__ = "0.2.1"
 
 import builtins
+import inspect
 import types
 
 import pytest
 from _pytest.fixtures import FixtureFunctionDefinition
+
+
+def let(factory):
+    """Define a lazy fixture from a zero-argument function.
+
+    user = let(lambda: User(role=role))
+    """
+    if not isinstance(factory, types.FunctionType) or inspect.signature(factory).parameters:
+        raise TypeError("let() takes a zero-argument function, e.g. let(lambda: value)")
+    # staticmethod so a let in a test class isn't bound to the instance
+    return pytest.fixture(staticmethod(factory))
 
 
 class _FixtureBuiltins(dict):
@@ -55,6 +67,9 @@ def _swap(obj, attr, request):
     original = getattr(obj, attr, None)
     if isinstance(original, types.MethodType):
         rebound = types.MethodType(_rebind(original.__func__, request), original.__self__)
+    elif isinstance(original, staticmethod):
+        # a module-level let; a plain function is never bound to a test instance
+        rebound = _rebind(original.__func__, request)
     elif isinstance(original, types.FunctionType):
         rebound = _rebind(original, request)
     else:
