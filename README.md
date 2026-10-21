@@ -71,7 +71,7 @@ A `lambda` is called lazily, once per test, so it can use other fixtures by bare
 
 ### Limitations
 Declare the fixture as a parameter instead when:
-- the test is wrapped by a decorator such as `@mock.patch` or hypothesis's `@given`
+- the test is wrapped by a decorator such as `@mock.patch` or hypothesis's `@given` (the test fails with an error saying so)
 - the fixture is parametrized
 - an async test uses an async fixture
 - a yield fixture first uses the name after its `yield` (pytest 9.1+ refuses fixture lookups during teardown)

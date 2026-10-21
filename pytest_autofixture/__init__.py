@@ -8,6 +8,7 @@ scope, overrides and teardown; nothing is written to the test's module.
 __version__ = "0.2.1"
 
 import builtins
+import dis
 import inspect
 import sys
 import types
@@ -98,11 +99,55 @@ def _swap(obj, attr, request):
         setattr(obj, attr, original)
 
 
+def _loaded_globals(code):
+    for instruction in dis.get_instructions(code):
+        if instruction.opname == "LOAD_GLOBAL":
+            yield instruction.argval
+    for const in code.co_consts:
+        if isinstance(const, types.CodeType):
+            yield from _loaded_globals(const)
+
+
+def _check_decorated(item):
+    """Whether the test is wrapped by a decorator, which keeps its real globals.
+
+    Fails up front if a bare name would silently get a module's fixture object.
+    """
+    # hypothesis's @given doesn't set __wrapped__, but exposes the test this way
+    hypothesis = getattr(item.obj, "hypothesis", None)
+    inner = getattr(hypothesis, "inner_test", None) or inspect.unwrap(item.obj)
+    if inner is item.obj or not hasattr(inner, "__code__"):
+        return False
+
+    names = sorted(
+        {
+            name
+            for name in _loaded_globals(inner.__code__)
+            if isinstance(inner.__globals__.get(name), FixtureFunctionDefinition)
+        }
+    )
+    if names:
+        listed = ", ".join(repr(name) for name in names)
+        plural = "a parameter" if len(names) == 1 else "parameters"
+        pytest.fail(f"{_decorated_message(item)}: declare {listed} as {plural}", pytrace=False)
+    return True
+
+
+def _decorated_message(item):
+    return f"{item.name} is wrapped by a decorator, so autofixture can't resolve its bare names"
+
+
 # runtest_call, not pyfunc_call: plugins like pytest-asyncio wrap item.obj
 # inside runtest(), so the swap has to happen first
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item):
-    return (yield from _swap(item, "obj", item._request))
+    decorated = _check_decorated(item)
+    try:
+        return (yield from _swap(item, "obj", item._request))
+    except NameError as e:
+        if decorated:
+            e.add_note(f"{_decorated_message(item)}: declare the fixtures it uses as parameters")
+        raise
 
 
 # the request here is the fixture's own SubRequest, so lookups get pytest's
