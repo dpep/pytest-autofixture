@@ -9,21 +9,37 @@ __version__ = "0.2.1"
 
 import builtins
 import inspect
+import sys
 import types
 
 import pytest
 from _pytest.fixtures import FixtureFunctionDefinition
 
 
-def let(factory):
-    """Define a lazy fixture from a zero-argument function.
+class _Let:
+    """`let.role = "member"` defines a fixture named `role` where it's written.
 
-    user = let(lambda: User(role=role))
+    A lambda is called lazily, once per test; any other value is used as is.
     """
-    if not isinstance(factory, types.FunctionType) or inspect.signature(factory).parameters:
-        raise TypeError("let() takes a zero-argument function, e.g. let(lambda: value)")
-    # staticmethod so a let in a test class isn't bound to the instance
-    return pytest.fixture(staticmethod(factory))
+
+    def __setattr__(self, name, value):
+        frame = sys._getframe(1)
+        # a function's locals are gone once it returns, and pytest never sees them
+        if frame.f_code.co_flags & inspect.CO_OPTIMIZED:
+            raise TypeError(f"let.{name} must be set at module or class level")
+
+        if isinstance(value, types.LambdaType) and value.__name__ == "<lambda>":
+            if inspect.signature(value).parameters:
+                raise TypeError(f"let.{name} lambda takes no arguments; use bare names instead")
+            factory = value
+        else:
+            factory = lambda: value  # noqa: E731
+
+        # staticmethod so a let in a test class isn't bound to the instance
+        frame.f_locals[name] = pytest.fixture(staticmethod(factory), name=name)
+
+
+let = _Let()
 
 
 class _FixtureBuiltins(dict):
