@@ -8,6 +8,7 @@ scope, overrides and teardown; nothing is written to the test's module.
 __version__ = "0.2.1"
 
 import builtins
+import copy
 import dis
 import inspect
 import sys
@@ -20,8 +21,8 @@ from _pytest.fixtures import FixtureFunctionDefinition
 class _Let:
     """`let.role = "member"` defines a fixture named `role` where it's written.
 
-    A lambda is called on first use, at most once per test; any other value is
-    shared by every test, so mutable containers must be wrapped in a lambda.
+    A lambda is called on first use, at most once per test; a list, dict, set or
+    bytearray is copied fresh for each test; any other value is shared.
     """
 
     def __setattr__(self, name, value):
@@ -38,10 +39,9 @@ class _Let:
                 raise TypeError(f"let.{name} lambda takes no arguments; use bare names instead")
             factory = value
         elif isinstance(value, (list, dict, set, bytearray)):
-            raise TypeError(
-                f"let.{name} = {value!r} would be shared by every test; "
-                f"use let.{name} = lambda: {value!r}"
-            )
+            # deep, so nested containers aren't shared either; this also copies
+            # any objects inside, which a lambda would keep
+            factory = lambda: copy.deepcopy(value)  # noqa: E731
         else:
             factory = lambda: value  # noqa: E731
 

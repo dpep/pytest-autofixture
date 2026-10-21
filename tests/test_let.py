@@ -53,11 +53,17 @@ def test_helpers_do_not_see_lets():
         helper()
 
 
-def test_let_mutable_constant():
-    with pytest.raises(TypeError, match=r"lambda: \[\]"):
+class TestLetContainer:
+    let.items = [[]]
 
-        class _:
-            let.items = []
+    # each test appends, so a shared list would fail whichever runs second
+    def test_first(self):
+        items[0].append(1)
+        assert items == [[1]]
+
+    def test_second(self):
+        items[0].append(1)
+        assert items == [[1]]
 
 
 def test_let_builtin_name():
