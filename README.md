@@ -63,7 +63,7 @@ class TestAdmin:
         assert user.can_delete()
 ```
 
-A `lambda` is called on first use, at most once per test, so it can use other fixtures by bare name. Any other value is shared by every test: fine for strings, numbers and classes (`let.model = User` is the class, not an instance), but a list, dict or set raises an error asking for `lambda: []` instead. Use a regular fixture when you need a scope, params, or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
+A `lambda` is called on first use, at most once per test, so it can use other fixtures by bare name. A list, dict or set is deep-copied for each test, so `let.items = []` starts empty every time; use a lambda if its contents must stay the same objects. Any other value is shared by every test: fine for strings, numbers and classes (`let.model = User` is the class, not an instance). Use a regular fixture when you need a scope, params, or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
 
 
 ### Coming from RSpec
