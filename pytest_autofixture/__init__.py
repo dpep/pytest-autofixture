@@ -141,6 +141,10 @@ def _decorated_message(item):
 # inside runtest(), so the swap has to happen first
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item):
+    # e.g. pytest-mypy or yaml-collected items: no Python function to rebind
+    if not isinstance(item, pytest.Function):
+        return (yield)
+
     decorated = _check_decorated(item)
     try:
         return (yield from _swap(item, "obj", item._request))
