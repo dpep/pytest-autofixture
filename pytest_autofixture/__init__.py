@@ -25,8 +25,10 @@ class _FixtureBuiltins(dict):
         try:
             value = self._request.getfixturevalue(name)
         except pytest.FixtureLookupError as e:
-            if e.argname != name:
-                raise  # a real fixture whose own dependency is missing
+            # a missing dependency of a real fixture, or pytest refusing the lookup
+            # (e.g. first request during teardown) carries its own message
+            if e.argname != name or e.msg is not None:
+                raise
             raise NameError(f"name {name!r} is not defined (and no fixture by that name)") from None
         self[name] = value
         return value

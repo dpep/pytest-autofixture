@@ -125,6 +125,23 @@ def test_fixture_body_teardown(run):
     result.assert_outcomes(passed=2)
 
 
+@pytest.mark.skipif(pytest.version_tuple < (9, 1), reason="pytest 9.1 refuses teardown lookups")
+def test_first_lookup_during_teardown_reports_pytests_error(run):
+    result = run("""
+        import pytest
+
+        @pytest.fixture
+        def resource():
+            yield
+            name
+
+        def test_uses_it():
+            resource
+    """)
+    result.assert_outcomes(passed=1, errors=1)
+    result.stdout.fnmatch_lines(["*not available during teardown*"])
+
+
 def test_fixture_bodies_respect_scope(run):
     result = run("""
         import pytest

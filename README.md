@@ -55,6 +55,7 @@ Declare the fixture as a parameter instead when:
 - the test is wrapped by a decorator such as `@mock.patch` or hypothesis's `@given`
 - the fixture is parametrized
 - an async test uses an async fixture
+- a yield fixture first uses the name after its `yield` (pytest 9.1+ refuses fixture lookups during teardown)
 
 Linters will flag bare fixture names as undefined (ruff `F821`, pyright). Silence that for test files, e.g. in `pyproject.toml`:
 ```toml
