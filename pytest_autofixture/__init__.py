@@ -25,8 +25,10 @@ class _FixtureBuiltins(dict):
         try:
             value = self._request.getfixturevalue(name)
         except pytest.FixtureLookupError as e:
-            if e.argname != name:
-                raise  # a real fixture whose own dependency is missing
+            # a missing dependency of a real fixture, or pytest refusing the lookup
+            # (e.g. first request during teardown) carries its own message
+            if e.argname != name or e.msg is not None:
+                raise
             raise NameError(f"name {name!r} is not defined (and no fixture by that name)") from None
         self[name] = value
         return value
@@ -48,20 +50,33 @@ def _rebind(func, request):
     return rebound
 
 
+def _swap(obj, attr, request):
+    """Temporarily replace obj.<attr> with a rebound copy, if it's a function."""
+    original = getattr(obj, attr, None)
+    if isinstance(original, types.MethodType):
+        rebound = types.MethodType(_rebind(original.__func__, request), original.__self__)
+    elif isinstance(original, types.FunctionType):
+        rebound = _rebind(original, request)
+    else:
+        return (yield)
+
+    setattr(obj, attr, rebound)
+    try:
+        return (yield)
+    finally:
+        setattr(obj, attr, original)
+
+
 # runtest_call, not pyfunc_call: plugins like pytest-asyncio wrap item.obj
 # inside runtest(), so the swap has to happen first
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item):
-    original = getattr(item, "obj", None)
-    if isinstance(original, types.MethodType):
-        rebound = types.MethodType(_rebind(original.__func__, item._request), original.__self__)
-    elif isinstance(original, types.FunctionType):
-        rebound = _rebind(original, item._request)
-    else:
-        return (yield)
+    return (yield from _swap(item, "obj", item._request))
 
-    item.obj = rebound
-    try:
-        return (yield)
-    finally:
-        item.obj = original
+
+# the request here is the fixture's own SubRequest, so lookups get pytest's
+# scope checks and resolve overrides from the requesting test's position.
+# tryfirst: rebind the user's function before plugins like pytest-asyncio wrap it.
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_fixture_setup(fixturedef, request):
+    return (yield from _swap(fixturedef, "func", request))

@@ -22,13 +22,40 @@ def test_one():
     assert one == 1
 ```
 
-Any name in a test that would otherwise raise `NameError` is looked up as a fixture. Lookup is lazy, so a fixture is only set up if the test actually reaches it. Scope, overrides and teardown work exactly as they do for declared fixtures.
+Any name in a test or fixture that would otherwise raise `NameError` is looked up as a fixture. Lookup is lazy, so a fixture is only set up if it's actually reached. Scope, overrides and teardown work exactly as they do for declared fixtures.
+
+Because fixtures resolve their dependencies from where the test is, an inner class can override one value and outer fixtures pick it up, like a nested `let` in RSpec:
+```python
+@pytest.fixture
+def role():
+    return "member"
+
+
+@pytest.fixture
+def user():
+    return User(role=role)
+
+
+def test_member():
+    assert not user.can_delete()
+
+
+class TestAdmin:
+    @pytest.fixture
+    def role(self):
+        return "admin"
+
+    def test_admin(self):
+        assert user.can_delete()
+```
 
 
 ### Limitations
 Declare the fixture as a parameter instead when:
 - the test is wrapped by a decorator such as `@mock.patch` or hypothesis's `@given`
 - the fixture is parametrized
+- an async test uses an async fixture
+- a yield fixture first uses the name after its `yield` (pytest 9.1+ refuses fixture lookups during teardown)
 
 Linters will flag bare fixture names as undefined (ruff `F821`, pyright). Silence that for test files, e.g. in `pyproject.toml`:
 ```toml
