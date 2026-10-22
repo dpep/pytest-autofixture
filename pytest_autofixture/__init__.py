@@ -5,7 +5,7 @@ fixture, lazily, via `request.getfixturevalue`. pytest owns setup, caching,
 scope, overrides and teardown; nothing is written to the test's module.
 """
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 import builtins
 import copy
