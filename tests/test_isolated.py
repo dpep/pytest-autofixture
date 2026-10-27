@@ -360,3 +360,23 @@ def test_let_forgotten_lambda_fails_at_import(run):
     """)
     result.assert_outcomes(errors=1)
     result.stdout.fnmatch_lines(["*NameError: name 'role' is not defined*"])
+
+
+def test_threads_share_one_setup(run):
+    result = run("""
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        import pytest
+
+        @pytest.fixture
+        def slow():
+            time.sleep(0.05)
+            return object()
+
+        def test_threads():
+            with ThreadPoolExecutor(4) as pool:
+                values = list(pool.map(lambda _: slow, range(4)))
+            assert len({id(v) for v in values}) == 1
+    """)
+    result.assert_outcomes(passed=1)
