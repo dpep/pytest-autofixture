@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Reading globals and builtins in a test or fixture is faster, and a builtin monkeypatched during the test is seen by the test itself.
 - Threads in a test that first use a fixture by bare name at the same time now share one setup. Before, the fixture was set up once per thread, or pytest 9.1 crashed.
 - `global` writes in a yield fixture's teardown, and to globals named like `__private`, now reach the module.
 - A parametrized name used by bare name wins over a builtin or module global of the same name. Before, `parametrize("input", ...)` silently gave the test the builtin `input`.
