@@ -129,3 +129,20 @@ def test_builtin_fixtures():
 @pytest.mark.parametrize("x, y", [(1, 2)])
 def test_parametrize_several_bare_names():
     assert (x, y) == (1, 2)
+
+
+@pytest.fixture
+def shout():
+    return input.upper()
+
+
+# parametrized names belong to the test, so they beat builtins and module globals
+@pytest.mark.parametrize("input", ["abc"])
+def test_parametrize_shadows_builtins():
+    assert input == "abc"
+    assert shout == "ABC"
+
+
+@pytest.mark.parametrize("types", ["admin"])
+def test_parametrize_shadows_module_globals():
+    assert types == "admin"

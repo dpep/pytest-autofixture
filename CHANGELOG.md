@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- A parametrized name used by bare name wins over a builtin or module global of the same name. Before, `parametrize("input", ...)` silently gave the test the builtin `input`.
+- `let.name` raises `TypeError` when a module global (such as an import) already has that name, since the global would hide the let.
 - A `let` in a test class now overrides a fixture of the same name inherited from a base class. Before, the inherited fixture silently won.
 - `let` deep-copies every non-lambda value for each test, not just lists, dicts and sets, so `let.user = User()` no longer leaks state between tests. A value that can't be copied fails at the `let` line. If you relied on one object shared by every test, write `let.name = lambda: OBJ`.
 - A `KeyError` raised inside a fixture used by bare name is reported as itself, instead of as a misleading `NameError` for the fixture.

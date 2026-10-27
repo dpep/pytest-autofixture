@@ -95,6 +95,13 @@ def test_let_uncopyable():
             let.lock = threading.Lock()
 
 
+def test_let_module_global_name():
+    with pytest.raises(TypeError, match="module global"):
+
+        class _:
+            let.threading = 5
+
+
 def test_let_builtin_name():
     with pytest.raises(TypeError, match="builtin"):
 
