@@ -67,8 +67,7 @@ class TestAdmin:
 
 What you assign decides how it behaves:
 - A `lambda` is called on first use, at most once per test, so it can use other fixtures by bare name.
-- A list, dict, set or bytearray is deep-copied for each test, so `let.items = []` starts empty every time. Use a lambda if the contents must stay the same objects.
-- Anything else is shared by every test. That's fine for strings, numbers and classes (`let.model = User` is the class, not an instance).
+- Anything else is deep-copied for each test, so `let.items = []` or `let.user = User()` starts fresh every time. Strings, numbers, classes and functions aren't copied (`let.model = User` is the class itself). Use a lambda if a value can't be copied, or must stay the same object.
 
 A builtin name such as `let.id` raises `TypeError`, since the builtin would always win. Use a regular fixture when you need a scope, params or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
 

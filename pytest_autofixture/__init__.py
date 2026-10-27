@@ -21,8 +21,8 @@ from _pytest.fixtures import FixtureFunctionDefinition
 class _Let:
     """`let.role = "member"` defines a fixture named `role` where it's written.
 
-    A lambda is called on first use, at most once per test; a list, dict, set or
-    bytearray is copied fresh for each test; any other value is shared.
+    A lambda is called on first use, at most once per test; any other value is
+    deep-copied for each test.
     """
 
     def __setattr__(self, name, value):
@@ -38,12 +38,17 @@ class _Let:
             if inspect.signature(value).parameters:
                 raise TypeError(f"let.{name} lambda takes no arguments; use bare names instead")
             factory = value
-        elif isinstance(value, (list, dict, set, bytearray)):
-            # deep, so nested containers aren't shared either; this also copies
-            # any objects inside, which a lambda would keep
-            factory = lambda: copy.deepcopy(value)  # noqa: E731
         else:
-            factory = lambda: value  # noqa: E731
+            # deepcopy returns immutables (str, int, classes, functions) as-is,
+            # so only mutable state is copied. Try once now, so an uncopyable
+            # value fails here rather than in every test.
+            try:
+                copy.deepcopy(value)
+            except Exception as e:
+                raise TypeError(
+                    f"let.{name} can't be copied for each test ({e}); use a lambda"
+                ) from None
+            factory = lambda: copy.deepcopy(value)  # noqa: E731
 
         # stored under another name so `role` stays undefined at import: a
         # forgotten lambda or a helper reading it raises NameError instead of

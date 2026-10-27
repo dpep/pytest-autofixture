@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- `let` deep-copies every non-lambda value for each test, not just lists, dicts and sets, so `let.user = User()` no longer leaks state between tests. A value that can't be copied fails at the `let` line. If you relied on one object shared by every test, write `let.name = lambda: OBJ`.
 - A `KeyError` raised inside a fixture used by bare name is reported as itself, instead of as a misleading `NameError` for the fixture.
 
 ## 0.3.0 (2026-10-21)
