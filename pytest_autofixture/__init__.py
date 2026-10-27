@@ -170,7 +170,7 @@ class _LiveGlobals(dict):
 
     def write_back(self):
         for name, value in self.items():
-            if not name.startswith("__"):
+            if name != "__builtins__" and name not in _MODULE_DUNDERS:
                 self._module[name] = value
 
 
@@ -191,6 +191,10 @@ def _swap(obj, attr, request):
     rebound.__dict__.update(func.__dict__)
     if isinstance(original, types.MethodType):
         rebound = types.MethodType(rebound, original.__self__)
+
+    # a generator fixture's teardown runs after setup returns, and can write too
+    if inspect.isgeneratorfunction(func) or inspect.isasyncgenfunction(func):
+        request.addfinalizer(namespace.write_back)
 
     setattr(obj, attr, rebound)
     try:

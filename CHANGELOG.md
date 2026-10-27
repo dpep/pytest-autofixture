@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- `global` writes in a yield fixture's teardown, and to globals named like `__private`, now reach the module.
 - A parametrized name used by bare name wins over a builtin or module global of the same name. Before, `parametrize("input", ...)` silently gave the test the builtin `input`.
 - `let.name` raises `TypeError` when a module global (such as an import) already has that name, since the global would hide the let.
 - A `let` in a test class now overrides a fixture of the same name inherited from a base class. Before, the inherited fixture silently won.
