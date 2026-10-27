@@ -4,7 +4,7 @@
 - Breaking: `let` deep-copies every non-lambda value for each test, not just lists, dicts and sets, so `let.user = User()` no longer leaks state between tests. If you relied on one object shared by every test, write `let.name = lambda: OBJ`. A value that can't be copied now raises `TypeError` at the `let` line.
 - Breaking: a `let` named like an existing module global, such as an import, now raises `TypeError`, since the global would hide it. Rename the let or the global.
 - In a test body, a parametrized name beats a builtin or module global of the same name. Before, `parametrize("input", ...)` silently gave the test the builtin `input`.
-- A `let` in a test class overrides a fixture of the same name inherited from a base class. Before, the inherited fixture silently won.
+- A `let` overrides a fixture of the same name inherited from a base class, or imported into the same module. Before, the other fixture silently won.
 - Threads that first use the same bare-name fixture at once share one setup. Before, it was set up once per thread, or pytest 9.1 crashed.
 - `global` writes in a yield fixture's teardown, and to names like `__private`, now reach the module.
 - A builtin monkeypatched during a test is seen by the test itself, and reading globals and builtins is faster.

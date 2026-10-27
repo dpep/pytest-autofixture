@@ -380,3 +380,47 @@ def test_threads_share_one_setup(run):
             assert len({id(v) for v in values}) == 1
     """)
     result.assert_outcomes(passed=1)
+
+
+def test_let_overrides(run, pytester):
+    pytester.makepyfile(
+        shared="""
+        import pytest
+        from pytest_autofixture import let
+
+        @pytest.fixture
+        def role():
+            return "member"
+
+        class Base:
+            @pytest.fixture
+            def level(self):
+                return "member"
+
+        class AdminMixin(Base):
+            let.level = "admin"
+        """
+    )
+    result = run("""
+        import shared
+        from shared import role
+        from pytest_autofixture import let
+
+        let.role = "admin"
+
+        # the mixin is reached only through the module, so it's never collected
+        class TestMixin(shared.AdminMixin):
+            def test_mixin_let_beats_inherited_fixture(self):
+                assert level == "admin"
+
+        def test_let_redefines_imported_fixture():
+            assert role == "admin"
+
+        class TestDoor:
+            def _let_in(self):
+                return "welcome"
+
+            def test_other_attributes_left_alone(self):
+                assert self._let_in() == "welcome"
+    """)
+    result.assert_outcomes(passed=3)
