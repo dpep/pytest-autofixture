@@ -30,7 +30,14 @@ class _Let:
         # a function's locals are gone once it returns, and pytest never sees them
         if frame.f_code.co_flags & inspect.CO_OPTIMIZED:
             raise TypeError(f"let.{name} must be set at module or class level")
-        # builtins resolve before fixtures, so the let would never be seen
+        # globals and builtins resolve before fixtures, so the let would never be seen
+        try:
+            # [] rather than `in`, so a test's live globals are read too
+            _module_value(frame.f_globals, name)
+        except KeyError:
+            pass
+        else:
+            raise TypeError(f"let.{name} would be hidden by the module global {name!r}")
         if hasattr(builtins, name):
             raise TypeError(f"let.{name} would be hidden by the builtin {name!r}")
 
@@ -98,20 +105,24 @@ class _FixtureBuiltins(dict):
         except KeyError:
             pass
 
-        try:
-            value = self._request.getfixturevalue(name)
-        except KeyError as e:
-            # CPython treats a KeyError from a builtins lookup as "not found"
-            # and replaces it with NameError, hiding the fixture's real error
-            raise LookupError(f"fixture {name!r} raised KeyError: {e}") from e
-        except pytest.FixtureLookupError as e:
-            # a missing dependency of a real fixture, or pytest refusing the lookup
-            # (e.g. first request during teardown) carries its own message
-            if e.argname != name or e.msg is not None:
-                raise
-            raise NameError(f"name {name!r} is not defined (and no fixture by that name)") from None
+        value = _fixture_value(self._request, name)
         self[name] = value
         return value
+
+
+def _fixture_value(request, name):
+    try:
+        return request.getfixturevalue(name)
+    except KeyError as e:
+        # CPython treats a KeyError from a name lookup as "not found" and
+        # replaces it with NameError, hiding the fixture's real error
+        raise LookupError(f"fixture {name!r} raised KeyError: {e}") from e
+    except pytest.FixtureLookupError as e:
+        # a missing dependency of a real fixture, or pytest refusing the lookup
+        # (e.g. first request during teardown) carries its own message
+        if e.argname != name or e.msg is not None:
+            raise
+        raise NameError(f"name {name!r} is not defined (and no fixture by that name)") from None
 
 
 _MODULE_DUNDERS = (
@@ -145,11 +156,16 @@ class _LiveGlobals(dict):
         # lambdas, nested defs and genexprs inside the test inherit the fallback
         self["__builtins__"] = _FixtureBuiltins(request, module)
         self._module = module
+        self._request = request
+        # like arguments, the test's parametrized names beat globals and builtins
+        self._params = _parametrized_names(request._pyfuncitem)
 
     def __getitem__(self, name):
         try:
             return super().__getitem__(name)
         except KeyError:
+            if name in self._params:
+                return _fixture_value(self._request, name)
             return _module_value(self._module, name)
 
     def write_back(self):
@@ -254,10 +270,16 @@ def pytest_fixture_setup(fixturedef, request):
 # parametrized names to the fixtures it requests before pytest's own hook runs
 @pytest.hookimpl(tryfirst=True)
 def pytest_generate_tests(metafunc):
-    for marker in metafunc.definition.iter_markers("parametrize"):
+    for name in _parametrized_names(metafunc.definition):
+        if name not in metafunc.fixturenames:
+            metafunc.fixturenames.append(name)
+
+
+def _parametrized_names(item):
+    names = set()
+    for marker in item.iter_markers("parametrize"):
         argnames = marker.args[0] if marker.args else marker.kwargs.get("argnames", ())
         if isinstance(argnames, str):
             argnames = [name.strip() for name in argnames.split(",") if name.strip()]
-        for name in argnames:
-            if name not in metafunc.fixturenames:
-                metafunc.fixturenames.append(name)
+        names.update(argnames)
+    return names

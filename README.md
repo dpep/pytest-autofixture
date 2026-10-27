@@ -48,6 +48,8 @@ def test_can_delete():
     assert user.can_delete()
 ```
 
+A parametrized name belongs to the test, like an argument, so it wins over a builtin or module global of the same name: `parametrize("input", ...)` is fine.
+
 
 ### `let`
 For one-liners, `let` defines a fixture right where it's written, at module level or in a test class, like RSpec's `let(:role) { "member" }`:
@@ -69,7 +71,7 @@ What you assign decides how it behaves:
 - A `lambda` is called on first use, at most once per test, so it can use other fixtures by bare name.
 - Anything else is deep-copied for each test, so `let.items = []` or `let.user = User()` starts fresh every time. Strings, numbers, classes and functions aren't copied (`let.model = User` is the class itself). Use a lambda if a value can't be copied, or must stay the same object.
 
-A builtin name such as `let.id` raises `TypeError`, since the builtin would always win. Use a regular fixture when you need a scope, params or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
+A name already taken by a builtin or a module global, such as `let.id` or `let.json` after `import json`, raises `TypeError`, since the other name would always win. Use a regular fixture when you need a scope, params or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
 
 
 ### Coming from RSpec
