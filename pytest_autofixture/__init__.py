@@ -119,13 +119,15 @@ class _FixtureBuiltins(dict):
 
 
 # pytest isn't thread-safe, and threads in a test can race to set up the same
-# fixture. Reentrant, since a fixture's setup looks up its own dependencies.
-_lookup_lock = threading.RLock()
+# fixture. One lock per name, so a thread started during one fixture's setup can
+# still look up another; reentrant, since a fixture can look up its own name.
+_lookup_locks = {}
 
 
 def _fixture_value(request, name):
+    lock = _lookup_locks.setdefault(name, threading.RLock())
     try:
-        with _lookup_lock:
+        with lock:
             return request.getfixturevalue(name)
     except KeyError as e:
         # CPython treats a KeyError from a name lookup as "not found" and
