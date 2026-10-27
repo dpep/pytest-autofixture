@@ -81,6 +81,10 @@ class _FixtureBuiltins(dict):
 
         try:
             value = self._request.getfixturevalue(name)
+        except KeyError as e:
+            # CPython treats a KeyError from a builtins lookup as "not found"
+            # and replaces it with NameError, hiding the fixture's real error
+            raise LookupError(f"fixture {name!r} raised KeyError: {e}") from e
         except pytest.FixtureLookupError as e:
             # a missing dependency of a real fixture, or pytest refusing the lookup
             # (e.g. first request during teardown) carries its own message
@@ -196,7 +200,10 @@ def _check_decorated(item):
 
 
 def _decorated_message(item):
-    return f"{item.name} is wrapped by a decorator, so autofixture can't resolve its bare names"
+    return (
+        f"{item.name} is wrapped by a decorator or plugin, "
+        "so autofixture can't resolve its bare names"
+    )
 
 
 # runtest_call, not pyfunc_call: plugins like pytest-asyncio wrap item.obj
