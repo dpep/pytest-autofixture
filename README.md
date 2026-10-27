@@ -71,17 +71,19 @@ What you assign decides how it behaves:
 - A `lambda` is called on first use, at most once per test, so it can use other fixtures by bare name.
 - Anything else is deep-copied for each test, so `let.items = []` or `let.user = User()` starts fresh every time. Strings, numbers, classes and functions aren't copied (`let.model = User` is the class itself). Use a lambda if a value can't be copied, or must stay the same object.
 
-A name already taken by a builtin or a module global, such as `let.id` or `let.json` after `import json`, raises `TypeError`, since the other name would always win. Use a regular fixture when you need a scope, params or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
+An override can build on the value it replaces, like RSpec's `super()`: inside a class, `let.role = lambda: role.upper()` gets the outer `role`.
+
+A name already taken by a builtin or a module global, such as `let.id` or `let.json` after `import json`, raises `TypeError`, since the other name would always win. Use a regular fixture when you need more than one expression, a scope, params or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
 
 
 ### Coming from RSpec
 | RSpec | pytest-autofixture |
 |---|---|
 | `let(:user) { User.new(role:) }` | `let.user = lambda: User(role=role)` |
-| `let!` / `before` | `@pytest.fixture(autouse=True)` |
+| `let!` / `before` | `@pytest.fixture(autouse=True)` (not `setup_method`, which can't see bare names) |
 | `after` | a `yield` fixture |
 | `subject` | `let.subject = lambda: ...` |
-| `describe` / `context` | a nested `class TestX` |
+| `describe` / `context` | a nested class, named `Test...` so pytest collects it |
 | `shared_examples` | a base test class |
 | same examples with a different `let` | `@pytest.mark.parametrize("role", [...])` |
 
@@ -93,7 +95,7 @@ Declare the fixture as a parameter instead when:
 - an async test uses an async fixture
 - a yield fixture first uses the name after its `yield` (pytest 9.1+ refuses fixture lookups during teardown)
 
-Only test and fixture bodies resolve bare names. A module-level helper raises `NameError` for them, so pass the value in instead.
+Only test and fixture bodies resolve bare names. A module-level helper raises `NameError` for them, so pass the value in instead. Inside a test, `globals()` isn't the module's dict; use `sys.modules[__name__]` to reach the module.
 
 Linters flag bare fixture names as undefined (ruff `F821`, pyright). Silence that for test files, e.g. in `pyproject.toml`:
 ```toml

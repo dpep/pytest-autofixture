@@ -107,3 +107,10 @@ def test_let_builtin_name():
 
         class _:
             let.id = 5
+
+
+class TestLetBuildsOnOuter:
+    let.name = lambda: name.upper()
+
+    def test_wraps_outer_value(self):
+        assert name == "CONFTEST"
