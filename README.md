@@ -95,7 +95,7 @@ Declare the fixture as a parameter instead when:
 - an async test uses an async fixture
 - a yield fixture first uses the name after its `yield` (pytest 9.1+ refuses fixture lookups during teardown)
 
-Only test and fixture bodies see bare names; a module-level helper raises `NameError`, so pass the value in. Inside a test, `globals()` isn't the module's dict; use `sys.modules[__name__]` to reach the module.
+Only test and fixture bodies see bare names; a module-level helper raises `NameError`, so pass the value in. Inside a test, `globals()` isn't the module's dict (use `sys.modules[__name__]`), a `global` write reaches the module only when the test returns, and `del` of a global fails.
 
 Linters flag bare fixture names as undefined (ruff `F821`, pyright). Silence that for test files, e.g. in `pyproject.toml`:
 ```toml
