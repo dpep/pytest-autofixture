@@ -62,9 +62,13 @@ class _Let:
 
         # stored under another name so `role` stays undefined at import: a
         # forgotten lambda or a helper reading it raises NameError instead of
-        # getting the fixture object. staticmethod so a let in a test class
-        # isn't bound to the instance.
-        frame.f_locals[f"{_LET_PREFIX}{name}"] = pytest.fixture(staticmethod(factory), name=name)
+        # getting the fixture object. But a fixture already defined here is
+        # replaced, as a redefinition would. staticmethod so a let in a test
+        # class isn't bound to the instance.
+        key = f"{_LET_PREFIX}{name}"
+        if isinstance(frame.f_locals.get(name), FixtureFunctionDefinition):
+            key = name
+        frame.f_locals[key] = pytest.fixture(staticmethod(factory), name=name)
 
 
 let = _Let()
@@ -72,15 +76,17 @@ let = _Let()
 
 # pytest registers a class's fixtures alphabetically by attribute, so an inherited
 # `role` would beat this class's `_let_role`. Now that the class body has run,
-# give the let its real name so it shadows the inherited one.
+# give the let its real name so it shadows the inherited one. Bases too, since
+# a mixin reached only through its module is never collected itself.
 @pytest.hookimpl(tryfirst=True)
 def pytest_pycollect_makeitem(collector, name, obj):
     if not isinstance(obj, type):
         return
-    for attr, value in list(vars(obj).items()):
-        if attr.startswith(_LET_PREFIX):
-            delattr(obj, attr)
-            setattr(obj, attr.removeprefix(_LET_PREFIX), value)
+    for cls in obj.__mro__:
+        for attr, value in list(vars(cls).items()):
+            if attr.startswith(_LET_PREFIX) and isinstance(value, FixtureFunctionDefinition):
+                delattr(cls, attr)
+                setattr(cls, attr.removeprefix(_LET_PREFIX), value)
 
 
 def _module_value(module, name):
