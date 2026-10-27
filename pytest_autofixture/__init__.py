@@ -2,7 +2,7 @@
 
 Any name in a test that would otherwise raise NameError is looked up as a
 fixture, lazily, via `request.getfixturevalue`. pytest owns setup, caching,
-scope, overrides and teardown; nothing is written to the test's module.
+scope, overrides and teardown.
 """
 
 __version__ = "0.3.0"
@@ -17,6 +17,8 @@ import types
 
 import pytest
 from _pytest.fixtures import FixtureFunctionDefinition
+
+_LET_PREFIX = "_let_"
 
 
 class _Let:
@@ -66,7 +68,6 @@ class _Let:
 
 
 let = _Let()
-_LET_PREFIX = "_let_"
 
 
 # pytest registers a class's fixtures alphabetically by attribute, so an inherited
@@ -152,8 +153,9 @@ class _LiveGlobals(dict):
     """A function's module globals, read live, with fixture objects hidden.
 
     Reads go through __getitem__ (globals that aren't an exact dict take the slow
-    path), so rebinds by helpers or monkeypatch are seen. Hiding a fixture object
-    raises KeyError, which falls through to builtins and then to the fixture.
+    path), so rebinds by helpers or monkeypatch are seen. A name that isn't a
+    global or builtin (or is a hidden fixture object) raises KeyError, which
+    falls through to the builtins' __missing__ and then to the fixture.
     STORE_GLOBAL bypasses __setitem__, so `global` writes land here until
     write_back copies them to the module.
     """
@@ -199,8 +201,8 @@ class _LiveGlobals(dict):
 def _swap(obj, attr, request):
     """Temporarily replace obj.<attr> with a rebound copy, if it's a function."""
     original = getattr(obj, attr, None)
-    # staticmethod is a module-level let: unwrapped, a plain function is never
-    # bound to a test instance
+    # a let is a staticmethod: unwrapped, a plain function is never bound to a
+    # test instance
     func = getattr(original, "__func__", original)
     if not isinstance(func, types.FunctionType):
         return (yield)
