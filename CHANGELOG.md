@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- A `KeyError` raised inside a fixture used by bare name is reported as itself, instead of as a misleading `NameError` for the fixture.
+
 ## 0.3.0 (2026-10-21)
 - `@pytest.mark.parametrize` can target a name the test only uses by bare name.
 - Decorated tests (`@mock.patch`, `@given`) that use bare fixture names now fail with an error saying to declare them as parameters, instead of silently getting the fixture object.
