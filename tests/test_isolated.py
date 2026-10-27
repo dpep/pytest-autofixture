@@ -325,8 +325,27 @@ def test_module_globals_stay_live(run):
             monkeypatch.setattr(sys.modules[__name__], "TIMEOUT", 0)
             assert TIMEOUT == 0
             assert name == "conftest"
+
+        @pytest.fixture
+        def server():
+            global _conn
+            yield
+            _conn = "closed"
+
+        def test_teardown_writes_a_global(server):
+            pass
+
+        def test_teardown_write_persists():
+            assert _conn == "closed"
+
+        def test_private_global_write():
+            global __private
+            __private = 1
+
+        def test_private_global_write_persists():
+            assert __private == 1
     """)
-    result.assert_outcomes(passed=6)
+    result.assert_outcomes(passed=10)
 
 
 def test_let_forgotten_lambda_fails_at_import(run):
