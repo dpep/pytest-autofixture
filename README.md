@@ -46,7 +46,7 @@ def test_can_delete():
     assert user.can_delete()
 ```
 
-A parametrized name belongs to the test, like an argument, so it beats a builtin or module global of the same name: `parametrize("input", ...)` is fine.
+A parametrized name belongs to the test, like an argument, so in the test body it beats a builtin or module global of the same name: `parametrize("input", ...)` is fine. Fixture bodies keep the real builtin or global.
 
 
 ### `let`

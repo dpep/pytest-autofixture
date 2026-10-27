@@ -138,15 +138,16 @@ def test_parametrize_several_bare_names():
 
 
 @pytest.fixture
-def shout():
-    return input.upper()
+def rounded():
+    return format(1.5, ".0f")
 
 
-# parametrized names belong to the test, so they beat builtins and module globals
-@pytest.mark.parametrize("input", ["abc"])
+# parametrized names belong to the test, like arguments: they beat builtins and
+# module globals in the test body, and fixture bodies keep the real ones
+@pytest.mark.parametrize("format", ["admin"])
 def test_parametrize_shadows_builtins():
-    assert input == "abc"
-    assert shout == "ABC"
+    assert format == "admin"
+    assert rounded == "2"
 
 
 @pytest.mark.parametrize("types", ["admin"])

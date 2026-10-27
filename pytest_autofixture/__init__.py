@@ -160,7 +160,7 @@ class _LiveGlobals(dict):
     write_back copies them to the module.
     """
 
-    def __init__(self, module, request):
+    def __init__(self, module, request, params):
         # C code reads these directly, without __getitem__ (e.g. __name__ for
         # the __module__ of functions and classes made in the test)
         super().__init__({k: module[k] for k in _MODULE_DUNDERS if k in module})
@@ -169,8 +169,9 @@ class _LiveGlobals(dict):
         self["__builtins__"] = self._fixtures = _FixtureBuiltins(request, module)
         self._module = module
         self._request = request
-        # like arguments, the test's parametrized names beat globals and builtins
-        self._params = _parametrized_names(request._pyfuncitem)
+        # like arguments, a test's parametrized names beat globals and builtins
+        # in its own body, and stay out of fixture bodies
+        self._params = params
 
     def __getitem__(self, name):
         # runs for every global and builtin the test reads, so dict.get with a
@@ -198,7 +199,7 @@ class _LiveGlobals(dict):
                 self._module[name] = value
 
 
-def _swap(obj, attr, request):
+def _swap(obj, attr, request, params=frozenset()):
     """Temporarily replace obj.<attr> with a rebound copy, if it's a function."""
     original = getattr(obj, attr, None)
     # a let is a staticmethod: unwrapped, a plain function is never bound to a
@@ -207,7 +208,7 @@ def _swap(obj, attr, request):
     if not isinstance(func, types.FunctionType):
         return (yield)
 
-    namespace = _LiveGlobals(func.__globals__, request)
+    namespace = _LiveGlobals(func.__globals__, request, params)
     rebound = types.FunctionType(
         func.__code__, namespace, func.__name__, func.__defaults__, func.__closure__
     )
@@ -279,7 +280,7 @@ def pytest_runtest_call(item):
 
     decorated = _check_decorated(item)
     try:
-        return (yield from _swap(item, "obj", item._request))
+        return (yield from _swap(item, "obj", item._request, _parametrized_names(item)))
     except NameError as e:
         if decorated:
             e.add_note(f"{_decorated_message(item)}: declare the fixtures it uses as parameters")
