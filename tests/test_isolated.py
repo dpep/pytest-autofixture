@@ -1,5 +1,7 @@
 # behavior that needs its own pytest session: state across tests,
 # expected failures, and hooks that would affect the whole suite
+import sys
+
 import pytest
 
 CONFTEST = """
@@ -446,5 +448,23 @@ def test_thread_in_fixture_setup_can_look_up(run):
 
         def test_server():
             assert server == [8000]
+    """)
+    result.assert_outcomes(passed=1)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="lazy imports are new in 3.15")
+def test_lazy_imports(run):
+    result = run("""
+        lazy import json
+
+        import pytest
+
+        @pytest.fixture
+        def payload():
+            return json.dumps({})
+
+        def test_lazy_import():
+            assert json.dumps([]) == "[]"
+            assert payload == "{}"
     """)
     result.assert_outcomes(passed=1)
