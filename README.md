@@ -12,7 +12,7 @@ Requires Python 3.11+ and pytest 8.4+. The plugin is active once installed; turn
 
 
 ### Usage
-Any name in a test or fixture that would otherwise raise `NameError` is looked up as a fixture. Lookup is lazy, so a fixture is set up only if the code reaches it. Scope, overrides and teardown work exactly as they do for declared fixtures.
+Any name in a test or fixture body that would otherwise raise `NameError` is looked up as a fixture. Lookup is lazy, so a fixture is set up only if the code reaches it, and scope, overrides and teardown work as they do for declared fixtures. Declared parameters still work and mix freely with bare names.
 
 Fixtures resolve their dependencies from where the test is, so an inner class can override one value and outer fixtures pick it up, like a nested `let` in RSpec:
 ```python
@@ -39,20 +39,18 @@ class TestAdmin:
         assert user.can_delete()
 ```
 
-Declared parameters still work and mix freely with bare names.
-
-`parametrize` works the same way, no declaration needed:
+`parametrize` needs no declaration either:
 ```python
 @pytest.mark.parametrize("role", ["admin", "owner"])
 def test_can_delete():
     assert user.can_delete()
 ```
 
-A parametrized name belongs to the test, like an argument, so it wins over a builtin or module global of the same name: `parametrize("input", ...)` is fine.
+A parametrized name belongs to the test, like an argument, so it beats a builtin or module global of the same name: `parametrize("input", ...)` is fine.
 
 
 ### `let`
-For one-liners, `let` defines a fixture right where it's written, at module level or in a test class, like RSpec's `let(:role) { "member" }`:
+`let` defines a one-line fixture where it's written, at module level or in a test class, like RSpec's `let(:role) { "member" }`:
 ```python
 from pytest_autofixture import let
 
@@ -68,12 +66,14 @@ class TestAdmin:
 ```
 
 What you assign decides how it behaves:
-- A `lambda` is called on first use, at most once per test, so it can use other fixtures by bare name.
-- Anything else is deep-copied for each test, so `let.items = []` or `let.user = User()` starts fresh every time. Strings, numbers, classes and functions aren't copied (`let.model = User` is the class itself). Use a lambda if a value can't be copied, or must stay the same object.
+- A `lambda` is called on first use, at most once per test, and can use other fixtures by bare name.
+- Anything else is deep-copied for each test, so `let.items = []` or `let.user = User()` starts fresh every time. Strings, numbers, classes and functions pass through as-is (`let.model = User` is the class itself). If a value can't be copied, or must stay one shared object, use a lambda.
 
-An override can build on the value it replaces, like RSpec's `super()`: inside a class, `let.role = lambda: role.upper()` gets the outer `role`.
+A `let` in a class overrides a fixture of the same name from outside it or from a base class, and can build on the value it replaces, like RSpec's `super()`: `let.role = lambda: role.upper()` gets the outer `role`.
 
-A name already taken by a builtin or a module global, such as `let.id` or `let.json` after `import json`, raises `TypeError`, since the other name would always win. Use a regular fixture when you need more than one expression, a scope, params or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
+`let` raises `TypeError` on the spot for a lambda with parameters, a value that can't be copied, or a name already taken by a builtin or module global, such as `let.id` or `let.json` after `import json` (the other name would always win).
+
+Use a regular fixture when you need more than one expression, a scope, params or teardown. There's no special `subject`: `let.subject = lambda: Order(items=items)` is just a fixture named `subject`.
 
 
 ### Coming from RSpec
@@ -95,7 +95,7 @@ Declare the fixture as a parameter instead when:
 - an async test uses an async fixture
 - a yield fixture first uses the name after its `yield` (pytest 9.1+ refuses fixture lookups during teardown)
 
-Only test and fixture bodies resolve bare names. A module-level helper raises `NameError` for them, so pass the value in instead. Inside a test, `globals()` isn't the module's dict; use `sys.modules[__name__]` to reach the module.
+Only test and fixture bodies see bare names; a module-level helper raises `NameError`, so pass the value in. Inside a test, `globals()` isn't the module's dict; use `sys.modules[__name__]` to reach the module.
 
 Linters flag bare fixture names as undefined (ruff `F821`, pyright). Silence that for test files, e.g. in `pyproject.toml`:
 ```toml
