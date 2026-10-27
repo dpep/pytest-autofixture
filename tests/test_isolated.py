@@ -106,6 +106,29 @@ def test_missing_dependency_reports_the_dependency(run):
     result.stdout.fnmatch_lines(["*fixture 'not_a_fixture' not found*"])
 
 
+def test_key_error_in_fixture_is_reported(run):
+    result = run("""
+        import pytest
+
+        @pytest.fixture
+        def config():
+            return {}["db"]
+
+        @pytest.fixture
+        def client():
+            return config
+
+        def test_direct():
+            config
+
+        def test_through_fixture():
+            client
+    """)
+    result.assert_outcomes(failed=2)
+    result.stdout.fnmatch_lines(["*KeyError: 'db'*"])
+    result.stdout.no_fnmatch_line("E *NameError*")
+
+
 def test_fixture_body_teardown(run):
     result = run("""
         import pytest
