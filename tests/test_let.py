@@ -1,3 +1,6 @@
+import threading
+import types
+
 import pytest
 
 from pytest_autofixture import let
@@ -53,17 +56,29 @@ def test_helpers_do_not_see_lets():
         helper()
 
 
-class TestLetContainer:
+class TestLetCopies:
     let.items = [[]]
+    let.box = types.SimpleNamespace(tags=[])
 
-    # each test appends, so a shared list would fail whichever runs second
+    # each test mutates, so a shared value would fail whichever runs second
     def test_first(self):
         items[0].append(1)
+        box.tags.append(1)
         assert items == [[1]]
+        assert box.tags == [1]
 
     def test_second(self):
         items[0].append(1)
+        box.tags.append(1)
         assert items == [[1]]
+        assert box.tags == [1]
+
+
+def test_let_uncopyable():
+    with pytest.raises(TypeError, match="use a lambda"):
+
+        class _:
+            let.lock = threading.Lock()
 
 
 def test_let_builtin_name():
