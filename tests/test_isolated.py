@@ -424,3 +424,27 @@ def test_let_overrides(run, pytester):
                 assert self._let_in() == "welcome"
     """)
     result.assert_outcomes(passed=3)
+
+
+def test_thread_in_fixture_setup_can_look_up(run):
+    result = run("""
+        import threading
+
+        import pytest
+
+        @pytest.fixture
+        def port():
+            return 8000
+
+        @pytest.fixture
+        def server():
+            seen = []
+            thread = threading.Thread(target=lambda: seen.append(port))
+            thread.start()
+            thread.join(timeout=2)
+            return seen
+
+        def test_server():
+            assert server == [8000]
+    """)
+    result.assert_outcomes(passed=1)
