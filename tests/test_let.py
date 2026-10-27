@@ -46,6 +46,20 @@ class TestLet:
         assert shout == "HI LET"
 
 
+class SharedRole:
+    @pytest.fixture
+    def role(self):
+        return "member"
+
+    def test_role(self):
+        assert role == self.expected
+
+
+class TestLetOverridesInherited(SharedRole):
+    expected = "admin"
+    let.role = "admin"
+
+
 def helper():
     return answer
 

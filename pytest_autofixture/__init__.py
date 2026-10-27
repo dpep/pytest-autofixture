@@ -54,10 +54,24 @@ class _Let:
         # forgotten lambda or a helper reading it raises NameError instead of
         # getting the fixture object. staticmethod so a let in a test class
         # isn't bound to the instance.
-        frame.f_locals[f"_let_{name}"] = pytest.fixture(staticmethod(factory), name=name)
+        frame.f_locals[f"{_LET_PREFIX}{name}"] = pytest.fixture(staticmethod(factory), name=name)
 
 
 let = _Let()
+_LET_PREFIX = "_let_"
+
+
+# pytest registers a class's fixtures alphabetically by attribute, so an inherited
+# `role` would beat this class's `_let_role`. Now that the class body has run,
+# give the let its real name so it shadows the inherited one.
+@pytest.hookimpl(tryfirst=True)
+def pytest_pycollect_makeitem(collector, name, obj):
+    if not isinstance(obj, type):
+        return
+    for attr, value in list(vars(obj).items()):
+        if attr.startswith(_LET_PREFIX):
+            delattr(obj, attr)
+            setattr(obj, attr.removeprefix(_LET_PREFIX), value)
 
 
 def _module_value(module, name):
