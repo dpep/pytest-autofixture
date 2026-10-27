@@ -1,14 +1,14 @@
 # Changelog
 
 ## Unreleased
-- Reading globals and builtins in a test or fixture is faster, and a builtin monkeypatched during the test is seen by the test itself.
-- Threads in a test that first use a fixture by bare name at the same time now share one setup. Before, the fixture was set up once per thread, or pytest 9.1 crashed.
-- `global` writes in a yield fixture's teardown, and to globals named like `__private`, now reach the module.
-- A parametrized name used by bare name wins over a builtin or module global of the same name. Before, `parametrize("input", ...)` silently gave the test the builtin `input`.
-- `let.name` raises `TypeError` when a module global (such as an import) already has that name, since the global would hide the let.
-- A `let` in a test class now overrides a fixture of the same name inherited from a base class. Before, the inherited fixture silently won.
-- `let` deep-copies every non-lambda value for each test, not just lists, dicts and sets, so `let.user = User()` no longer leaks state between tests. A value that can't be copied fails at the `let` line. If you relied on one object shared by every test, write `let.name = lambda: OBJ`.
-- A `KeyError` raised inside a fixture used by bare name is reported as itself, instead of as a misleading `NameError` for the fixture.
+- Breaking: `let` deep-copies every non-lambda value for each test, not just lists, dicts and sets, so `let.user = User()` no longer leaks state between tests. If you relied on one object shared by every test, write `let.name = lambda: OBJ`. A value that can't be copied now raises `TypeError` at the `let` line.
+- Breaking: a `let` named like an existing module global, such as an import, now raises `TypeError`, since the global would hide it. Rename the let or the global.
+- A parametrized name beats a builtin or module global of the same name. Before, `parametrize("input", ...)` silently gave the test the builtin `input`.
+- A `let` in a test class overrides a fixture of the same name inherited from a base class. Before, the inherited fixture silently won.
+- Threads that first use the same bare-name fixture at once share one setup. Before, it was set up once per thread, or pytest 9.1 crashed.
+- `global` writes in a yield fixture's teardown, and to names like `__private`, now reach the module.
+- A builtin monkeypatched during a test is seen by the test itself, and reading globals and builtins is faster.
+- A `KeyError` raised inside a bare-name fixture is reported as itself, not as a misleading `NameError` for the fixture.
 
 ## 0.3.0 (2026-10-21)
 - `@pytest.mark.parametrize` can target a name the test only uses by bare name.
