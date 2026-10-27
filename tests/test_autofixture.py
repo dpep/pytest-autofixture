@@ -1,3 +1,4 @@
+import builtins
 import types
 
 import pytest
@@ -120,6 +121,11 @@ def test_helpers_do_not_see_fixtures():
 def test_attribute_named_like_a_fixture():
     obj = types.SimpleNamespace(one="attr")
     assert obj.one == "attr"
+
+
+def test_patched_builtin(monkeypatch):
+    monkeypatch.setattr(builtins, "input", lambda: "typed")
+    assert input() == "typed"
 
 
 def test_builtin_fixtures():

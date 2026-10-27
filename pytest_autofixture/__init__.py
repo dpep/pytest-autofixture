@@ -32,6 +32,8 @@ class _Let:
         if frame.f_code.co_flags & inspect.CO_OPTIMIZED:
             raise TypeError(f"let.{name} must be set at module or class level")
         # globals and builtins resolve before fixtures, so the let would never be seen
+        if hasattr(builtins, name):
+            raise TypeError(f"let.{name} would be hidden by the builtin {name!r}")
         try:
             # [] rather than `in`, so a test's live globals are read too
             _module_value(frame.f_globals, name)
@@ -39,8 +41,6 @@ class _Let:
             pass
         else:
             raise TypeError(f"let.{name} would be hidden by the module global {name!r}")
-        if hasattr(builtins, name):
-            raise TypeError(f"let.{name} would be hidden by the builtin {name!r}")
 
         if isinstance(value, types.LambdaType) and value.__name__ == "<lambda>":
             if inspect.signature(value).parameters:
@@ -132,6 +132,9 @@ def _fixture_value(request, name):
         raise NameError(f"name {name!r} is not defined (and no fixture by that name)") from None
 
 
+_MISSING = object()
+_BUILTINS = vars(builtins)
+
 _MODULE_DUNDERS = (
     "__name__",
     "__qualname__",
@@ -161,19 +164,31 @@ class _LiveGlobals(dict):
         super().__init__({k: module[k] for k in _MODULE_DUNDERS if k in module})
         # functions take builtins from their globals when created (3.10+), so
         # lambdas, nested defs and genexprs inside the test inherit the fallback
-        self["__builtins__"] = _FixtureBuiltins(request, module)
+        self["__builtins__"] = self._fixtures = _FixtureBuiltins(request, module)
         self._module = module
         self._request = request
         # like arguments, the test's parametrized names beat globals and builtins
         self._params = _parametrized_names(request._pyfuncitem)
 
     def __getitem__(self, name):
-        try:
-            return super().__getitem__(name)
-        except KeyError:
-            if name in self._params:
-                return _fixture_value(self._request, name)
-            return _module_value(self._module, name)
+        # runs for every global and builtin the test reads, so dict.get with a
+        # sentinel rather than raising: it skips __getitem__ and __missing__
+        value = self.get(name, _MISSING)
+        if value is not _MISSING:
+            return value
+        if name in self._params:
+            return _fixture_value(self._request, name)
+        value = self._module.get(name, _MISSING)
+        if value is not _MISSING and not isinstance(value, FixtureFunctionDefinition):
+            return value
+        # answering here saves CPython's own builtins lookup; live builtins so a
+        # monkeypatched one is seen, then fixtures this test already looked up
+        value = _BUILTINS.get(name, _MISSING)
+        if value is _MISSING:
+            value = self._fixtures.get(name, _MISSING)
+        if value is _MISSING:
+            raise KeyError(name)  # on to the builtins' __missing__, and the fixture
+        return value
 
     def write_back(self):
         for name, value in self.items():
